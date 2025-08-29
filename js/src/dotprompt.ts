@@ -16,7 +16,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import * as Handlebars from 'handlebars';
+import Handlebars from 'handlebars/dist/cjs/handlebars.js';
 import * as builtinHelpers from './helpers';
 import { parseDocument, toMessages } from './parse';
 import { picoschema } from './picoschema';
@@ -90,6 +90,7 @@ export class Dotprompt {
     this.registerInitialHelpers(builtinHelpers, options?.helpers);
     this.registerInitialPartials(options?.partials);
   }
+
 
   /**
    * Registers a helper function for use in templates.
