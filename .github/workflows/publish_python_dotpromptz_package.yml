@@ -30,8 +30,6 @@ on:
         options:
           - testpypi
           - pypi
-#  pull_request:
-#    branches: [main]
 
 permissions:
   contents: write
@@ -48,6 +46,7 @@ jobs:
       matrix:
         python-version:
           - "3.12"
+
       fail-fast: false
 
     steps:
@@ -58,16 +57,16 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      # Dependency Check (Smoke Test)
+      # Dependency Check of handlebars
       - name: Install Dependencies for Check
         run: pip install requests
 
-      - name: Smoke Test - Check handlebarrz Dependency
+      - name: Smoke Test - Check handlebarrz Dependency on PyPI
         id: check_dependency
         run: |
           IS_FOUND=$(python -c '
           import requests
-          url = "https://pypi.org/project/dotprompt-handlebars/json"
+          url = "https://pypi.org/project/dotpromptz-handlebars/json"
           response = requests.get(url)
 
           if response.status_code == 200:
@@ -98,18 +97,18 @@ jobs:
           python-version: ${{ matrix.python-version }}
           enable-cache: true
 
-      - name: Install Build and Publish Tools
+      - name: Install Build Tools
         run: |
           uv pip install build twine
 
-      - name: Build dotpromptz distributions
+      - name: Build dotpromptz Distributions
         run: |
           source .venv/bin/activate
           cd python/dotpromptz
           python -m build
           twine check dist/*
 
-      - name: Upload build packages
+      - name: Upload dotpromptz Distributions for Python
         uses: actions/upload-artifact@v4
         with:
           name: dist-dotpromptz
@@ -138,9 +137,51 @@ jobs:
           name: dist-dotpromptz
           path: dist/
 
-      - name: Publish distribution to PyPI
+      - name: Publish Distribution to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           verbose: true
           packages-dir: dist/
           repository-url: ${{ inputs.target == 'testpypi' && 'https://test.pypi.org/legacy/' || 'https://upload.pypi.org/legacy/' }}
+
+  smoke_test_pypi_package:
+    name: Verify Package Usability
+    needs: [pypi_publish]
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version:
+          - "3.10"
+          - "3.11"
+          - "3.12"
+          - "3.13"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dotpromptz from PyPI
+        run: |
+          pip install dotpromptz
+
+      - name: Run Smoke Test Script
+        run: |
+          python -c "
+          import importlib.metadata
+          import sys
+
+          try:
+              importlib.metadata.version('dotpromptz')
+              print('Smoke test successful: Package found and imported.')
+
+          except importlib.metadata.PackageNotFoundError:
+              print('Smoke test FAILED: Package not found in environment.')
+              sys.exit(1)
+
+          except Exception as e:
+              print(f'Smoke test FAILED due to unexpected error: {e}')
+              sys.exit(1)
+              "
