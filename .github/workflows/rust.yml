@@ -39,6 +39,7 @@ jobs:
         with:
           files: |
             rs/**
+            python/handlebarrz/**
             Cargo.toml
             Cargo.lock
             .github/workflows/rust.yml
@@ -57,6 +58,8 @@ jobs:
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
+        env:
+          RUSTUP_MAX_RETRIES: 3
 
       - name: Check if this is a release-please PR
         id: check-release-please
@@ -106,6 +109,8 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
+        env:
+          RUSTUP_MAX_RETRIES: 3
 
       - name: Check formatting
         run: cargo fmt --all -- --check
@@ -123,6 +128,8 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
+        env:
+          RUSTUP_MAX_RETRIES: 3
 
       - name: Run clippy
         run: cargo clippy --all-targets --workspace -- -D warnings
@@ -134,12 +141,15 @@ jobs:
     runs-on: ${{ matrix.os_config.os }}
     env:
       PYO3_USE_ABI3_FORWARD_COMPATIBILITY: 1
+      # Enable sccache for Rust builds
+      SCCACHE_GHA_ENABLED: "true"
+      RUSTC_WRAPPER: "sccache"
     strategy:
       fail-fast: false
       matrix:
         os_config:
           - { os: ubuntu-latest, arch: x64 }
-          - { os: ubuntu-latest, arch: arm64 }
+          - { os: ubuntu-24.04-arm, arch: arm64 }  # Native ARM64 runner
           - { os: macos-latest, arch: arm64 }
         toolchain: [stable, nightly]
 
@@ -147,16 +157,15 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
 
-      - name: Cache Cargo registry and index
-        uses: actions/cache@v5
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
         with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ matrix.os_config.os }}-${{ matrix.os_config.arch }}-cargo-${{ matrix.toolchain }}-${{ hashFiles('**/Cargo.lock') }}
+          toolchain: ${{ matrix.toolchain }}
+        env:
+          RUSTUP_MAX_RETRIES: 3
+
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.9
 
       - name: Check code
         run: cargo check --all-targets --workspace
@@ -171,6 +180,9 @@ jobs:
           RUST_BACKTRACE: 1
         run: cargo test --all-targets --workspace
         continue-on-error: ${{ matrix.toolchain == 'nightly' }}
+
+      - name: Show sccache stats
+        run: sccache --show-stats
 
       - name: Verify SPEC_FILE support
         env:
